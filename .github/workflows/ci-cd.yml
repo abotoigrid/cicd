@@ -103,6 +103,13 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+      
+      # Configure Git User
+      - name: Configure Git user
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
