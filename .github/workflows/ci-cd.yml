@@ -119,16 +119,19 @@ jobs:
           version_variables = []  # No need to update version in files
           tag_format = "{version}"    # Customize tag format (no "v" prefix)
           changelog_to_release = false
-          remote = "origin"
+          remote = { name = "origin" }
           commit = false
           EOF
 
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          semantic-release version --minor
-          git push --follow-tags origin main
-          NEW_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
+          # Use semantic-release version, not tag, to calculate the new version
+          semantic-release version --minor --no-push
+          NEW_TAG=$(semantic-release print-version --current)
+          # Now create and push the tag manually
+          git tag $NEW_TAG
+          git push --tags origin main
           echo "new_tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -151,7 +154,6 @@ jobs:
           push: true
           tags: ${{ steps.set_docker_tag.outputs.docker_tag }}
           build-args: JAR_FILE=target/*.jar
-                
 
-            
+              
 
