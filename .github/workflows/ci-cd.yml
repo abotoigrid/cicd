@@ -60,6 +60,8 @@ jobs:
             ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-
       - name: Build with Maven
         run: mvn -B -e package
+      - name: Copy target to root
+        run: cp -r target ./
 
   create-artifact-pr:
     if: github.ref != 'refs/heads/main'
@@ -83,7 +85,7 @@ jobs:
           tags: ${{ steps.set_docker_tag.outputs.docker_tag }}
           build-args: JAR_FILE=target/*.jar
 
-          
+
           
 
          
