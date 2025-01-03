@@ -105,7 +105,7 @@ jobs:
           fetch-depth: 0
 
       - name: Bump version and push tag
-        uses: anothrNick/github-tag-action@v2 # Use a specific version for stability
+        uses: anothrNick/github-tag-action@v1 # Use a specific version for stability
         id: versioning
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
