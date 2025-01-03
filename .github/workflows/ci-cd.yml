@@ -114,7 +114,7 @@ jobs:
           pip install python-semantic-release
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
-          semantic-release version --bump minor
+          semantic-release bump --minor --no-v-prefix
           git push --follow-tags origin main
           NEW_TAG=$(git describe --tags `git rev-list --tags --max-count=1`)
           echo "new_tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
