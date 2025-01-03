@@ -102,61 +102,34 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: '0'
-      - name: Install Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
+          fetch-depth: 0
+
       - name: Bump version and push tag
-        id: tag_version
-        run: |
-          python -m pip install --upgrade pip
-          pip install python-semantic-release
+        uses: anothrNick/github-tag-action@v2 # Use a specific version for stability
+        id: versioning
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEFAULT_BUMP: minor # Force minor version bump on each commit
+          WITH_V: false # Do not add a 'v' prefix to the tag
+          RELEASE_BRANCHES: main # Only create tags on the main branch
 
-          # Correct pyproject.toml to match your tag format
-          cat <<EOF > pyproject.toml
-          [tool.semantic_release]
-          version_variables = []
-          tag_format = "{version}"  # No "v" prefix
-          changelog_to_release = false
-          remote = { name = "origin" }
-          commit = false
-          EOF
-
-          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "github-actions[bot]"
-          git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-
-          # Calculate the new version without pushing
-          semantic-release version --minor --no-push
-
-          # Get the new bumped version
-          NEW_TAG=$(semantic-release version --next)
-
-          # Check if the tag already exists before creating
-          if ! git rev-parse "refs/tags/$NEW_TAG" >/dev/null 2>&1; then
-            git tag "$NEW_TAG"
-            git push origin "$NEW_TAG"
-            echo "Tag $NEW_TAG created and pushed successfully."
-          else
-            echo "Tag $NEW_TAG already exists. Skipping tag creation."
-          fi
-
-          echo "new_tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
       - name: Construct Docker tag
         id: set_docker_tag
         run: |
           OWNER_LOWERCASE=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          TAG="ghcr.io/$OWNER_LOWERCASE/ci-cd:${{ steps.tag_version.outputs.new_tag }}"
+          TAG="ghcr.io/$OWNER_LOWERCASE/ci-cd:${{ steps.versioning.outputs.new_tag }}"
           echo "docker_tag=$TAG" >> $GITHUB_OUTPUT
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
