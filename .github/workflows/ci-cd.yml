@@ -113,11 +113,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install python-semantic-release
 
-          # Create a basic configuration file for python-semantic-release
+          # Correct pyproject.toml to match your tag format
           cat <<EOF > pyproject.toml
           [tool.semantic_release]
-          version_variables = []  # No need to update version in files
-          tag_format = "{version}"    # Customize tag format (no "v" prefix)
+          version_variables = []
+          tag_format = "{version}"  # No "v" prefix
           changelog_to_release = false
           remote = { name = "origin" }
           commit = false
@@ -126,12 +126,22 @@ jobs:
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --global user.name "github-actions[bot]"
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          # Use semantic-release version, not tag, to calculate the new version
+
+          # Calculate the new version without pushing
           semantic-release version --minor --no-push
-          NEW_TAG=$(semantic-release print-version --current)
-          # Now create and push the tag manually
-          git tag $NEW_TAG
-          git push --tags origin main
+
+          # Get the new bumped version
+          NEW_TAG=$(semantic-release version --next)
+
+          # Check if the tag already exists before creating
+          if ! git rev-parse "refs/tags/$NEW_TAG" >/dev/null 2>&1; then
+            git tag "$NEW_TAG"
+            git push origin "$NEW_TAG"
+            echo "Tag $NEW_TAG created and pushed successfully."
+          else
+            echo "Tag $NEW_TAG already exists. Skipping tag creation."
+          fi
+
           echo "new_tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -154,7 +164,3 @@ jobs:
           push: true
           tags: ${{ steps.set_docker_tag.outputs.docker_tag }}
           build-args: JAR_FILE=target/*.jar
-
-              
-
-
