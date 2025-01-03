@@ -16,6 +16,6 @@ def write_version(version):
 
 if __name__ == "__main__":
     current_version = read_version()
-    new_version = semver.bump_minor(current_version)
+    new_version = semver.bump_minor(current_version)  # Always bump
     write_version(new_version)
     print(new_version)
