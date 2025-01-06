@@ -7,16 +7,7 @@ on:
   pull_request:
     branches:
       - main
-  workflow_dispatch:
-    inputs:
-      vm_public_ip:
-        description: 'Public IP of the VM'
-        required: true
-        type: string
-      db_endpoint:
-        description: 'Endpoint of the Database'
-        required: true
-        type: string
+  
 
 jobs:
   # static-analysis:
@@ -160,7 +151,7 @@ jobs:
           tags: ${{ steps.set_docker_tag.outputs.docker_tag }}
 
   deploy:
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     needs: create-artifact-main
     environment: production
@@ -174,21 +165,30 @@ jobs:
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      - name: Retrieve Infrastructure Outputs from Parameter Store
+        id: get_infra_outputs
+        run: |
+          EC2_IP=$(aws ssm get-parameter --name "/myapp/ec2_public_ip" --query "Parameter.Value" --output text)
+          DB_ENDPOINT=$(aws ssm get-parameter --name "/myapp/db_endpoint" --query "Parameter.Value" --output text)
+          echo "ec2_ip=$EC2_IP" >> $GITHUB_OUTPUT
+          echo "db_endpoint=$DB_ENDPOINT" >> $GITHUB_OUTPUT
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ vars.AWS_REGION }}
 
       - name: Construct Docker tag
         id: set_docker_tag
         run: |
-          OWNER_LOWERCASE=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           TAG="ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:$(git describe --tags $(git rev-list --tags --max-count=1))"
           echo "docker_tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: Deploy to Server
         env:
           GHCR_PAT: ${{ secrets.GHCR_PULL_TOKEN }}
-          VM_PUBLIC_IP: ${{ github.event.inputs.vm_public_ip }}
-          DB_ENDPOINT: ${{ github.event.inputs.db_endpoint }}
+          MYSQL_HOST: ${{ steps.get_infra_outputs.outputs.db_endpoint }}
         run: |
-          ssh -o "StrictHostKeyChecking no" ${{ secrets.SSH_USER }}@$VM_PUBLIC_IP << EOF
+          ssh -o "StrictHostKeyChecking no" ${{ secrets.SSH_USER }}@${{ steps.get_infra_outputs.outputs.ec2_ip }} << EOF
             # Log in to ghcr.io
             echo "$GHCR_PAT" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
             # Check if the container exists and stop/remove it
@@ -201,13 +201,13 @@ jobs:
 
             # Run the new container
             docker run -d --name petclinic -p 8080:8080 \
-              -e SPRING_DATASOURCE_URL=jdbc:mysql://${{secrets.MYSQL_HOST}}:3306/${{secrets.MYSQL_DATABASE}}?useSSL=false \
+              -e SPRING_DATASOURCE_URL=jdbc:mysql://$MYSQL_HOST:3306/${{secrets.MYSQL_DATABASE}}?useSSL=false \
               -e SPRING_DATASOURCE_USERNAME=${{ secrets.MYSQL_USER }} \
               -e SPRING_DATASOURCE_PASSWORD=${{ secrets.MYSQL_PASSWORD }} \
               -e SPRING_PROFILES_ACTIVE=mysql \
               ${{ steps.set_docker_tag.outputs.docker_tag }}
 
             # Print application URL
-            echo "Application deployed at http://${{ secrets.SSH_HOST }}:8080"
+            echo "Application deployed at http://${{ steps.get_infra_outputs.outputs.ec2_ip }}:8080"
           EOF
 
