@@ -85,8 +85,7 @@ jobs:
       - name: Construct Docker tag
         id: set_docker_tag
         run: |
-          OWNER_LOWERCASE=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          TAG="ghcr.io/$OWNER_LOWERCASE/ci-cd:${{ github.sha }}"
+          TAG="ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ github.sha }}"
           echo "docker_tag=$TAG" >> $GITHUB_OUTPUT
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -133,8 +132,7 @@ jobs:
       - name: Construct Docker tag
         id: set_docker_tag
         run: |
-          OWNER_LOWERCASE=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          TAG="ghcr.io/$OWNER_LOWERCASE/ci-cd:${{ steps.versioning.outputs.new_tag }}"
+          TAG="ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ steps.versioning.outputs.new_tag }}"
           echo "docker_tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: Login to GitHub Container Registry
@@ -171,7 +169,7 @@ jobs:
         id: set_docker_tag
         run: |
           OWNER_LOWERCASE=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-          TAG="ghcr.io/$OWNER_LOWERCASE/ci-cd:$(git describe --tags $(git rev-list --tags --max-count=1))"
+          TAG="ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:$(git describe --tags $(git rev-list --tags --max-count=1))"
           echo "docker_tag=$TAG" >> $GITHUB_OUTPUT
 
       - name: Deploy to Server
