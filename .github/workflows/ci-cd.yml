@@ -114,7 +114,7 @@ jobs:
           context: .
           push: true
           tags: ${{ steps.set_docker_tag.outputs.docker_tag }}
-          build-args: JAR_FILE=target/*.jar
+          #build-args: JAR_FILE=target/*.jar
 
   create-artifact-main:
     if: github.ref == 'refs/heads/main'
@@ -160,7 +160,7 @@ jobs:
           context: .
           push: true
           tags: ${{ steps.set_docker_tag.outputs.docker_tag }}
-          build-args: JAR_FILE=target/*.jar
+          #build-args: JAR_FILE=target/*.jar
 
   deploy:
     if: github.ref == 'refs/heads/main'
