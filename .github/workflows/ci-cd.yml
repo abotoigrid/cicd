@@ -181,12 +181,10 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install SSH Key
-        uses: shimataro/ssh-key-action@v2
+      - name: Install SSH Key and Configure SSH
+        uses: webfactory/ssh-agent@v0.9.0
         with:
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          known_hosts: ${{ secrets.KNOWN_HOSTS }}
-          name: id_rsa
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Construct Docker tag
         id: set_docker_tag
@@ -199,7 +197,7 @@ jobs:
         env:
           GHCR_PAT: ${{ secrets.GHCR_PULL_TOKEN }}
         run: |
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << EOF
+          ssh -o "StrictHostKeyChecking no" ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << EOF
             # Log in to ghcr.io
             echo "$GHCR_PAT" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
             # Check if the container exists and stop/remove it
@@ -221,4 +219,4 @@ jobs:
             # Print application URL
             echo "Application deployed at http://${{ secrets.SSH_HOST }}:8080"
           EOF
-          
+
