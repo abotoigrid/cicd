@@ -216,7 +216,7 @@ jobs:
               -e MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }} \
               -e MYSQL_USER=${{ secrets.MYSQL_USER }} \
               -e MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }} \
-              -e MYSQL_URL=jdbc:mysql://${MYSQL_HOST}/${MYSQL_DATABASE}?createDatabaseIfNotExist=true \
+              -e MYSQL_URL=jdbc:mysql://${{secrets.MYSQL_HOST}}/${{secrets.MYSQL_DATABASE}}?createDatabaseIfNotExist=true \
               ${{ steps.set_docker_tag.outputs.docker_tag }}
 
             # Print application URL
