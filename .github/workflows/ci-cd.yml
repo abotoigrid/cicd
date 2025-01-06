@@ -7,6 +7,16 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      vm_public_ip:
+        description: 'Public IP of the VM'
+        required: true
+        type: string
+      db_endpoint:
+        description: 'Endpoint of the Database'
+        required: true
+        type: string
 
 jobs:
   # static-analysis:
@@ -150,7 +160,7 @@ jobs:
           tags: ${{ steps.set_docker_tag.outputs.docker_tag }}
 
   deploy:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     needs: create-artifact-main
     environment: production
@@ -175,8 +185,10 @@ jobs:
       - name: Deploy to Server
         env:
           GHCR_PAT: ${{ secrets.GHCR_PULL_TOKEN }}
+          VM_PUBLIC_IP: ${{ github.event.inputs.vm_public_ip }}
+          DB_ENDPOINT: ${{ github.event.inputs.db_endpoint }}
         run: |
-          ssh -o "StrictHostKeyChecking no" ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << EOF
+          ssh -o "StrictHostKeyChecking no" ${{ secrets.SSH_USER }}@$VM_PUBLIC_IP << EOF
             # Log in to ghcr.io
             echo "$GHCR_PAT" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
             # Check if the container exists and stop/remove it
