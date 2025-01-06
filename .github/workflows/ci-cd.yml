@@ -221,3 +221,4 @@ jobs:
             # Print application URL
             echo "Application deployed at http://${{ secrets.SSH_HOST }}:8080"
           EOF
+          
