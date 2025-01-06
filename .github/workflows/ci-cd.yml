@@ -119,7 +119,6 @@ jobs:
           context: .
           push: true
           tags: ${{ steps.set_docker_tag.outputs.docker_tag }}
-          #build-args: JAR_FILE=target/*.jar
 
   create-artifact-main:
     if: github.ref == 'refs/heads/main'
@@ -170,7 +169,6 @@ jobs:
           context: .
           push: true
           tags: ${{ steps.set_docker_tag.outputs.docker_tag }}
-          #build-args: JAR_FILE=target/*.jar
 
   deploy:
     if: github.ref == 'refs/heads/main'
@@ -181,7 +179,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch all history for git describe to work properly
+          fetch-depth: 0
 
       - name: Install SSH Key
         uses: shimataro/ssh-key-action@v2
@@ -199,7 +197,7 @@ jobs:
 
       - name: Deploy to Server
         env:
-          GHCR_PAT: ${{ secrets.GHCR_PULL_TOKEN }} # Add the PAT as an environment variable
+          GHCR_PAT: ${{ secrets.GHCR_PULL_TOKEN }}
         run: |
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << EOF
             # Log in to ghcr.io
@@ -218,6 +216,7 @@ jobs:
               -e MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }} \
               -e MYSQL_USER=${{ secrets.MYSQL_USER }} \
               -e MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }} \
+              -e MYSQL_URL=jdbc:mysql://${MYSQL_HOST}/${MYSQL_DATABASE}?createDatabaseIfNotExist=true \
               ${{ steps.set_docker_tag.outputs.docker_tag }}
 
             # Print application URL
