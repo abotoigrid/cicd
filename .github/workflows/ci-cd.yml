@@ -212,11 +212,10 @@ jobs:
 
             # Run the new container
             docker run -d --name petclinic -p 8080:8080 \
-              -e MYSQL_HOST=${{ secrets.MYSQL_HOST }} \
-              -e MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }} \
-              -e MYSQL_USER=${{ secrets.MYSQL_USER }} \
-              -e MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }} \
-              -e MYSQL_URL=jdbc:mysql://${{secrets.MYSQL_HOST}}/${{secrets.MYSQL_DATABASE}}?createDatabaseIfNotExist=true \
+              -e SPRING_DATASOURCE_URL=jdbc:mysql://${{secrets.MYSQL_HOST}}:3306/${{secrets.MYSQL_DATABASE}}?useSSL=false
+              -e SPRING_DATASOURCE_USERNAME=${{ secrets.MYSQL_USER }} \
+              -e SPRING_DATASOURCE_PASSWORD=${{ secrets.MYSQL_PASSWORD }} \
+              -e SPRING_PROFILES_ACTIVE=mysql
               ${{ steps.set_docker_tag.outputs.docker_tag }}
 
             # Print application URL
