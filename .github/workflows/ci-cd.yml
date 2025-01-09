@@ -212,7 +212,7 @@ jobs:
               ${{ steps.set_docker_tag.outputs.docker_tag }}
 
             # Prune old images, excluding the newly deployed image
-            docker image prune -a -f --filter "until=1h" --filter "label!=newly_deployed=$NEW_IMAGE_ID"
+            docker image prune -a -f --filter "until=24h" --filter "label!=newly_deployed=$NEW_IMAGE_ID"
 
             # Print application URL
             echo "Application deployed at http://${{ steps.get_infra_outputs.outputs.ec2_ip }}:8080"
