@@ -191,6 +191,10 @@ jobs:
           ssh -o "StrictHostKeyChecking no" ${{ secrets.SSH_USER }}@${{ steps.get_infra_outputs.outputs.ec2_ip }} << EOF
             # Log in to ghcr.io
             echo "$GHCR_PAT" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+
+            # Get the new image ID
+            NEW_IMAGE_ID=$(docker inspect --format='{{.Id}}' ${{ steps.set_docker_tag.outputs.docker_tag }})
+
             # Check if the container exists and stop/remove it
             if docker ps -a --format '{{.Names}}' | grep -q 'petclinic'; then
               docker stop petclinic
@@ -206,6 +210,9 @@ jobs:
               -e SPRING_DATASOURCE_PASSWORD=${{ secrets.MYSQL_PASSWORD }} \
               -e SPRING_PROFILES_ACTIVE=mysql \
               ${{ steps.set_docker_tag.outputs.docker_tag }}
+
+            # Prune old images, excluding the newly deployed image
+            docker image prune -a -f --filter "until=1h" --filter "label!=newly_deployed=$NEW_IMAGE_ID"
 
             # Print application URL
             echo "Application deployed at http://${{ steps.get_infra_outputs.outputs.ec2_ip }}:8080"
