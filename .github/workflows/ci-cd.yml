@@ -24,7 +24,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    #needs: static-analysis
+    needs: static-analysis
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK
@@ -44,6 +44,7 @@ jobs:
 
   build-and-cache-artifact:
     runs-on: ubuntu-latest
+    needs: test
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK
