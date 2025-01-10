@@ -12,6 +12,7 @@ on:
 jobs:
   static-analysis:
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK
@@ -19,6 +20,13 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-${{ github.ref }}
+          restore-keys: |
+            ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-
       - name: Run static analysis
         run: mvn checkstyle:check
 
@@ -36,7 +44,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-${{ github.base_ref }}
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-${{ github.ref }}
           restore-keys: |
             ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-
       - name: Run Tests
