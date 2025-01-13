@@ -67,8 +67,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            ~/.m2/repository
-            target/*.jar
+            target
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-build
           restore-keys: |
             ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-
@@ -89,7 +88,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            target/*.jar
+            target
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-build
           restore-keys: |
             ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-
@@ -127,7 +126,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: |
-            target/*.jar
+            target
           key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-build
           restore-keys: |
             ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-
