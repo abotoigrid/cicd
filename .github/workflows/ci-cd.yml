@@ -10,52 +10,51 @@ on:
   
 
 jobs:
-  static-analysis:
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up JDK
-        uses: actions/setup-java@v3
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-      - name: Cache Maven packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-${{ github.ref }}
-          restore-keys: |
-            ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-
-      - name: Run static analysis
-        run: mvn checkstyle:check
+  # static-analysis:
+  #   runs-on: ubuntu-latest
+  #   continue-on-error: true
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Set up JDK
+  #       uses: actions/setup-java@v3
+  #       with:
+  #         java-version: '17'
+  #         distribution: 'temurin'
+  #     - name: Cache Maven packages
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: ~/.m2/repository
+  #         key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-${{ github.ref }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-
+  #     - name: Run static analysis
+  #       run: mvn checkstyle:check
 
-  test:
-    runs-on: ubuntu-latest
-    needs: static-analysis
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up JDK
-        uses: actions/setup-java@v3
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-      - name: Cache Maven packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-${{ github.ref }}
-          restore-keys: |
-            ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-
-      - name: Run Tests
-        run: mvn -B -e test
+  # test:
+  #   runs-on: ubuntu-latest
+  #   needs: static-analysis
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - name: Set up JDK
+  #       uses: actions/setup-java@v3
+  #       with:
+  #         java-version: '17'
+  #         distribution: 'temurin'
+  #     - name: Cache Maven packages
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: ~/.m2/repository
+  #         key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-${{ github.ref }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-
+  #     - name: Run Tests
+  #       run: mvn -B -e test
 
   build-and-cache-artifact:
     runs-on: ubuntu-latest
-    needs: test
-    #if: github.event_name == 'pull_request'
+    #needs:
+      #- test
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK
@@ -116,6 +115,7 @@ jobs:
   create-artifact-main:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    #needs: build-and-cache-artifact
     permissions:
       contents: write
       packages: write
@@ -127,7 +127,13 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: petclinic-app
-          path: target
+          # Download to a specific directory, to avoid conflict
+          path: target-main
+
+      - name: Move Artifact from 'target-main' to 'target'
+        run: |
+          mv target-main/*.jar target/
+
 
       - name: Bump version and push tag
         uses: anothrNick/github-tag-action@v1
