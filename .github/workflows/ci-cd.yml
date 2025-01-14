@@ -81,7 +81,7 @@ jobs:
   build-and-cache-artifact-main:
     runs-on: ubuntu-latest
     #needs: test
-    if: github.event_name == 'pull_request'
+    if: github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK
