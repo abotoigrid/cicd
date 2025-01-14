@@ -124,10 +124,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Get most recent successful PR build run ID
+      - name: Get base branch name
+        id: get_base_branch
+        run: |
+          BASE_BRANCH=$(gh pr view $(git rev-parse --abbrev-ref HEAD) --json baseRefName --jq '.baseRefName')
+          echo "base_branch=$BASE_BRANCH" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Get most recent successful build run ID from base branch
         id: get_pr_run_id
         run: |
-          RUN_ID=$(gh run list --workflow="ci-cd.yml" --branch="main" --event="pull_request" --status="success" --limit 1 --json databaseId --jq '.[0].databaseId')
+          RUN_ID=$(gh run list --workflow="ci-cd.yml" --branch="${{ steps.get_base_branch.outputs.base_branch }}" --status="success" --limit 1 --json databaseId --jq '.[0].databaseId')
           echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
