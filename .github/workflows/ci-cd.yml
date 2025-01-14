@@ -122,7 +122,8 @@ jobs:
       - name: Construct Docker tag
         id: set_docker_tag
         run: |
-          TAG="ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ github.sha }}"
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c 1-7)
+          TAG="ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:pr-${{ github.event.number }}-${SHORT_SHA}"
           echo "docker_tag=$TAG" >> $GITHUB_OUTPUT
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
