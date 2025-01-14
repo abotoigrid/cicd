@@ -7,53 +7,11 @@ on:
   pull_request:
     branches:
       - main
-  
 
 jobs:
-  # static-analysis:
-  #   runs-on: ubuntu-latest
-  #   continue-on-error: true
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Set up JDK
-  #       uses: actions/setup-java@v3
-  #       with:
-  #         java-version: '17'
-  #         distribution: 'temurin'
-  #     - name: Cache Maven packages
-  #       uses: actions/cache@v4
-  #       with:
-  #         path: ~/.m2/repository
-  #         key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-${{ github.ref }}
-  #         restore-keys: |
-  #           ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-
-  #     - name: Run static analysis
-  #       run: mvn checkstyle:check
-
-  # test:
-  #   runs-on: ubuntu-latest
-  #   needs: static-analysis
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Set up JDK
-  #       uses: actions/setup-java@v3
-  #       with:
-  #         java-version: '17'
-  #         distribution: 'temurin'
-  #     - name: Cache Maven packages
-  #       uses: actions/cache@v4
-  #       with:
-  #         path: ~/.m2/repository
-  #         key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-${{ github.ref }}
-  #         restore-keys: |
-  #           ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-
-  #     - name: Run Tests
-  #       run: mvn -B -e test
-
-  build-and-cache-artifact:
+  static-analysis:
     runs-on: ubuntu-latest
-    #needs:
-      #- test
+    continue-on-error: true
     if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
@@ -66,7 +24,51 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-${{ github.base_ref }}
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-${{ github.ref }}
+          restore-keys: |
+            ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-
+      - name: Run static analysis
+        run: mvn checkstyle:check
+
+  test:
+    runs-on: ubuntu-latest
+    needs: static-analysis
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-${{ github.ref }}
+          restore-keys: |
+            ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-
+      - name: Run Tests
+        run: mvn -B -e test
+
+  build-and-cache-artifact:
+    runs-on: ubuntu-latest
+    needs: test
+    # Only run once per PR, even on repeated pushes
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          # Use a consistent key for PR artifacts
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-${{ github.event.pull_request.number }}
           restore-keys: |
             ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-
       - name: Build with Maven
@@ -77,11 +79,10 @@ jobs:
           name: petclinic-app
           path: target/*.jar
 
-      
   create-artifact-pr:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    needs: build-and-cache-artifact
+    needs: build-and-cache-artifact 
     permissions:
       contents: read
       packages: write
@@ -115,7 +116,7 @@ jobs:
   create-artifact-main:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    #needs: build-and-cache-artifact
+    # Removed the need for build-and-cache-artifact
     permissions:
       contents: write
       packages: write
@@ -126,14 +127,9 @@ jobs:
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
+          # Download the artifact created in the PR
           name: petclinic-app
-          # Download to a specific directory, to avoid conflict
-          path: target-main
-
-      - name: Move Artifact from 'target-main' to 'target'
-        run: |
-          mv target-main/*.jar target/
-
+          path: target
 
       - name: Bump version and push tag
         uses: anothrNick/github-tag-action@v1
@@ -234,3 +230,5 @@ jobs:
             # Print application URL
             echo "Application deployed at http://${{ steps.get_infra_outputs.outputs.ec2_ip }}:8080"
           EOF
+
+
