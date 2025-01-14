@@ -4,11 +4,11 @@ on:
   push:
     branches:
       - main
+      - test
   pull_request:
     branches:
       - main
   
-
 jobs:
   static-analysis:
     runs-on: ubuntu-latest
@@ -52,10 +52,10 @@ jobs:
       - name: Run Tests
         run: mvn -B -e test
 
-  build-and-cache-artifact-pr:
+  build-and-package-pr:
     runs-on: ubuntu-latest
     needs: test
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/test'
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK
@@ -72,135 +72,78 @@ jobs:
             ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-
       - name: Build with Maven
         run: mvn -B -e package -DskipTests
-      - name: Store build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: petclinic-app
-          path: target/*.jar
-
-  build-and-cache-artifact-main:
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main'
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up JDK
-        uses: actions/setup-java@v3
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-      - name: Cache Maven packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2/repository
-          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-${{ github.base_ref }}
-          restore-keys: |
-            ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-
-      - name: Build with Maven
-        run: mvn -B -e package -DskipTests
-      - name: Store build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: petclinic-app
-          path: target/*.jar
-      
-  create-artifact-pr:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    needs: build-and-cache-artifact-pr
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v4
-      - name: Download build artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: petclinic-app
-          path: target
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Construct Docker tag
-        id: set_docker_tag
+      - name: Build Docker Image
+        run: docker build -t petclinic:${{ github.sha }} .
+      - name: Save Docker image to tar
         run: |
-          TAG="ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ github.sha }}"
-          echo "docker_tag=$TAG" >> $GITHUB_OUTPUT
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+          mkdir -p /tmp/docker-image
+          docker save petclinic:${{ github.sha }} -o /tmp/docker-image/petclinic-image.tar
+      - name: Upload Docker image as artifact
+        uses: actions/upload-artifact@v3
         with:
-            registry: ghcr.io
-            username: ${{ github.repository_owner }}
-            password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.set_docker_tag.outputs.docker_tag }}
+          name: petclinic-image
+          path: /tmp/docker-image/petclinic-image.tar
 
-  create-artifact-main:
-    if: github.ref == 'refs/heads/main'
+  build-and-package-main:
     runs-on: ubuntu-latest
-    needs: build-and-cache-artifact-main
-    permissions:
-      contents: write
-      packages: write
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/test'
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Download build artifact
-        uses: actions/download-artifact@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v3
         with:
-          name: petclinic-app
-          path: target
-
+          java-version: '17'
+          distribution: 'temurin'
+      - name: Cache Maven packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-${{ github.base_ref }}
+          restore-keys: |
+            ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}-
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: petclinic-image
+          path: /tmp/docker-image
+      - name: Load Docker image from artifact
+        run: docker load -i /tmp/docker-image/petclinic-image.tar
       - name: Bump version and push tag
         uses: anothrNick/github-tag-action@v1
         id: versioning
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEFAULT_BUMP: minor
-          WITH_V: false 
+          WITH_V: false
           RELEASE_BRANCHES: main
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Construct Docker tag
-        id: set_docker_tag
-        run: |
-          TAG="ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:${{ steps.versioning.outputs.new_tag }}"
-          echo "docker_tag=$TAG" >> $GITHUB_OUTPUT
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.set_docker_tag.outputs.docker_tag }}
+      - name: Retag and push image
+        run: |
+          docker tag petclinic:${{ github.sha }} ghcr.io/${{ github.repository }}/petclinic:v${{ steps.versioning.outputs.new_tag }}
+          docker push ghcr.io/${{ github.repository }}/petclinic:v${{ steps.versioning.outputs.new_tag }}
 
   deploy:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/test'
     runs-on: ubuntu-latest
-    needs: create-artifact-main
+    needs: build-and-package-main
     environment: production
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
       - name: Install SSH Key and Configure SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
       - name: Retrieve Infrastructure Outputs from Parameter Store
         id: get_infra_outputs
         run: |
@@ -213,12 +156,6 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_REGION: ${{ vars.AWS_REGION }}
 
-      - name: Construct Docker tag
-        id: set_docker_tag
-        run: |
-          TAG="ghcr.io/${{ github.repository_owner }}/${{ github.event.repository.name }}:$(git describe --tags $(git rev-list --tags --max-count=1))"
-          echo "docker_tag=$TAG" >> $GITHUB_OUTPUT
-
       - name: Deploy to Server
         env:
           GHCR_PAT: ${{ secrets.GHCR_PULL_TOKEN }}
@@ -229,7 +166,7 @@ jobs:
             echo "$GHCR_PAT" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
 
             # Get the new image ID
-            NEW_IMAGE_ID=$(docker inspect --format='{{.Id}}' ${{ steps.set_docker_tag.outputs.docker_tag }})
+            NEW_IMAGE_ID=$(docker inspect --format='{{.Id}}' ghcr.io/${{ github.repository }}/petclinic:v$(git describe --tags $(git rev-list --tags --max-count=1)))
 
             # Check if the container exists and stop/remove it
             if docker ps -a --format '{{.Names}}' | grep -q 'petclinic'; then
@@ -237,7 +174,7 @@ jobs:
               docker rm petclinic
             fi
             # Pull the latest image
-            docker pull ${{ steps.set_docker_tag.outputs.docker_tag }}
+            docker pull ghcr.io/${{ github.repository }}/petclinic:v$(git describe --tags $(git rev-list --tags --max-count=1))
 
             # Run the new container
             docker run -d --name petclinic -p 8080:8080 \
@@ -245,7 +182,7 @@ jobs:
               -e SPRING_DATASOURCE_USERNAME=${{ secrets.MYSQL_USER }} \
               -e SPRING_DATASOURCE_PASSWORD=${{ secrets.MYSQL_PASSWORD }} \
               -e SPRING_PROFILES_ACTIVE=mysql \
-              ${{ steps.set_docker_tag.outputs.docker_tag }}
+              ghcr.io/${{ github.repository }}/petclinic:v$(git describe --tags $(git rev-list --tags --max-count=1))
 
             # Prune old images, excluding the newly deployed image
             docker image prune -a -f --filter "until=24h" --filter "label!=newly_deployed=$NEW_IMAGE_ID"
