@@ -252,6 +252,6 @@ jobs:
             docker image prune -a -f --filter "until=24h" --filter "label!=newly_deployed=$NEW_IMAGE_ID"
 
             # Print application URL
-            echo "Application deployed at http://${{ steps.get_infra_outputs.outputs.ec2_ip }}:8080"
+            echo "Application deployed at http://${{ steps.get_infra_outputs.outputs.db_endpoint }}"
           EOF
           
