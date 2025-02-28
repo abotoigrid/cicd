@@ -256,3 +256,4 @@ jobs:
             # Print application URL
             echo "Application deployed at http://${{ steps.get_infra_outputs.outputs.dns_name }}"
           EOF
+          
